@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import crypto from "crypto";
 
 const userSchema = new mongoose.Schema(
   {
@@ -19,6 +20,8 @@ const userSchema = new mongoose.Schema(
       required: [true, "Password is required"],
       select: false,
     },
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
     coachCode: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Coach",
@@ -89,6 +92,22 @@ userSchema.methods.generateJsonWebToken = function () {
   return jwt.sign({ id: this._id }, process.env.JWT_SECRET_KEY, {
     expiresIn: process.env.JWT_EXPIRES,
   });
+};
+
+userSchema.methods.getResetPasswordToken = function () {
+  // Generate token
+  const resetToken = crypto.randomBytes(20).toString("hex");
+
+  // Hash token and set to resetPasswordToken field
+  this.resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // Set expire
+  this.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+  return resetToken;
 };
 
 export const User = mongoose.model("User", userSchema);
