@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { Coach } from "../models/Coach.js";
+import crypto from "crypto";
 
 // COACH SIGNUP
 export const coachSignup = async (req, res) => {
@@ -91,5 +92,84 @@ export const getMyPlayers = async (req, res) => {
     res.status(200).json({ players: coach.players });
   } catch (error) {
     res.status(500).json({ message: "Error fetching players", error: error.message });
+  }
+};
+
+// FORGOT PASSWORD
+export const coachForgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const coach = await Coach.findOne({ email });
+    if (!coach) {
+      return res.status(404).json({ message: "Coach not found" });
+    }
+
+    // Get reset token
+    const resetToken = coach.getResetPasswordToken();
+    await coach.save({ validateBeforeSave: false });
+
+    // Create reset url
+    const resetUrl = `${req.protocol}://${req.get(
+      "host"
+    )}/api/v1/coach/reset-password/${resetToken}`;
+
+    // Here you would typically send an email with the reset URL
+    // For now, we'll just log it to the console
+    console.log("Password reset link:", resetUrl);
+
+    res.status(200).json({
+      message: "Password reset link sent to email",
+      // In development, return the token for testing
+      resetToken: process.env.NODE_ENV === "development" ? resetToken : undefined,
+    });
+  } catch (error) {
+    // If there's an error, reset the tokens
+    coach.resetPasswordToken = undefined;
+    coach.resetPasswordExpire = undefined;
+    await coach.save({ validateBeforeSave: false });
+
+    res.status(500).json({
+      message: "Failed to send password reset email",
+      error: error.message,
+    });
+  }
+};
+
+// RESET PASSWORD
+export const coachResetPassword = async (req, res) => {
+  try {
+    // Get hashed token
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(req.params.token)
+      .digest("hex");
+
+    const coach = await Coach.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!coach) {
+      return res.status(400).json({
+        message: "Invalid or expired reset token",
+      });
+    }
+
+    // Set new password
+    coach.password = req.body.password;
+    coach.resetPasswordToken = undefined;
+    coach.resetPasswordExpire = undefined;
+
+    await coach.save();
+
+    res.status(200).json({
+      message: "Password reset successful",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to reset password",
+      error: error.message,
+    });
   }
 };
