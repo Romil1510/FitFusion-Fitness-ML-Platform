@@ -1,10 +1,8 @@
-import cookieParser from "cookie-parser";
+import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import express from "express";
+import cookieParser from "cookie-parser";
 import { connectDB } from "./database/dbConnection.js";
-import authRoutes from "./routes/authRoutes.js";
-import coachRoutes from "./routes/coachRoute.js";
  const app=express();
  dotenv.config({ path: './config/config.env' });
 
@@ -18,9 +16,7 @@ import coachRoutes from "./routes/coachRoute.js";
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/api/auth', authRoutes);
-app.use('/api/coach',coachRoutes)
-connectDB();
 
+connectDB();
 
  export default app;
