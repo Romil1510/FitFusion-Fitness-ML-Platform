@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema(
       ref: "Coach",
       default: null,
     },
+    
     profile: {
       age: { type: Number, min: 13, max: 100 },
       height: { type: Number, min: 100, max: 250 },
@@ -50,6 +51,11 @@ const userSchema = new mongoose.Schema(
       hasInjuries: { type: Boolean, default: false },
       injuryDetails: String,
       currentLimitations: String,
+    },
+    transformationGoal: {
+      type: String,
+      enum: ["muscle_gain", "weight_loss", "weight_gain"],
+      default: "muscle_gain",
     },
     preferences: {
       dietType: {
