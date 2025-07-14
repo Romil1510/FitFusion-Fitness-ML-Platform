@@ -29,6 +29,7 @@ const coachSchema = new mongoose.Schema(
       default: () => nanoid(8),
     },
     players: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
   },
   { timestamps: true }
 );

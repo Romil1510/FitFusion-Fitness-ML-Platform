@@ -22,11 +22,10 @@ const userSchema = new mongoose.Schema(
     },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
-    coachCode: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Coach",
-      default: null,
-    },
+    coach: { type: mongoose.Schema.Types.ObjectId, ref: "Coach", default: null },
+
+    
+    
     
     profile: {
       age: { type: Number, min: 13, max: 100 },
@@ -69,6 +68,15 @@ const userSchema = new mongoose.Schema(
         enum: ["morning", "afternoon", "evening"],
       },
     },
+
+    mlPrediction: {
+      goal: String,
+      schedule: Object, // or Map or Mixed
+      calories: Number,
+      sportsExercise: Object,
+      predictedAt: Date
+    },
+    
     subscription: {
       plan: {
         type: String,
@@ -78,6 +86,7 @@ const userSchema = new mongoose.Schema(
       startDate: Date,
       endDate: Date,
     },
+    
     lastActive: { type: Date, default: Date.now },
     isVerified: { type: Boolean, default: false },
   },
