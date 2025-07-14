@@ -268,10 +268,10 @@ def predictionModel():
 
 if __name__=='__main__':
 
-    model=joblib.load('C:\\Users\\ve873\\OneDrive\\Desktop\\prediction_model\\final_model.pkl')
-    col_name=joblib.load("C:\\Users\\ve873\\OneDrive\\Desktop\\prediction_model\\columns.pkl")
-    exercise_model=joblib.load("C:\\Users\\ve873\\OneDrive\\Desktop\\prediction_model\\exercise_predict.pkl")
-    exercise_col=joblib.load("C:\\Users\\ve873\\OneDrive\\Desktop\\prediction_model\\exercise_col.pkl")
-    cal_model=joblib.load("C:\\Users\\ve873\\OneDrive\\Desktop\\prediction_model\\cal_model.pkl")
-    cal_col=joblib.load("C:\\Users\\ve873\\OneDrive\\Desktop\\prediction_model\\cal_col.pkl")
+    model=joblib.load('./final_model.pkl')
+    col_name=joblib.load("./columns.pkl")
+    exercise_model=joblib.load("./exercise_predict.pkl")
+    exercise_col=joblib.load("./exercise_col.pkl")
+    cal_model=joblib.load("./cal_model.pkl")
+    cal_col=joblib.load("./cal_col.pkl")
     app.run(debug=True)
