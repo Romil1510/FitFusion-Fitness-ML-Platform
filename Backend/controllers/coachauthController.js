@@ -86,12 +86,27 @@ export const coachLogout = (req, res) => {
 // GET MY PLAYERS
 export const getMyPlayers = async (req, res) => {
   try {
-    const coach = await Coach.findById(req.user._id).populate("players", "-password");
-    if (!coach) return res.status(404).json({ message: "Coach not found" });
+    const coachId = req.user._id;
 
-    res.status(200).json({ players: coach.players });
+    const coach = await Coach.findById(coachId)
+      .populate({
+        path: "players",
+        select: "-password -resetPasswordToken -resetPasswordExpire", // optional clean
+      });
+
+    if (!coach) {
+      return res.status(404).json({ message: "Coach not found" });
+    }
+
+    res.status(200).json({
+      message: "Players fetched successfully",
+      players: coach.players,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching players", error: error.message });
+    res.status(500).json({
+      message: "Error fetching players",
+      error: error.message,
+    });
   }
 };
 

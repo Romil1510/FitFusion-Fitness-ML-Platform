@@ -37,7 +37,7 @@ router.post("/predict", isAuthenticated, async (req, res) => {
     res.status(200).json({
       message: "ML prediction saved",
       prediction: updatedUser.mlPrediction,
-      prediction: User.mlPrediction
+      
     });
 
   } catch (err) {

@@ -1,5 +1,6 @@
 import { User } from '../models/User.js';
 import { generateToken } from "../utils/jwtToken.js";
+import { Coach } from "../models/Coach.js";
 import crypto from "crypto";
 
 const JWT_SECRET = process.env.JWT_SECRET_KEY || "mysecret";
@@ -9,12 +10,11 @@ const JWT_EXPIRE = "7d";
 
 // ================== SIGNUP ==================
 export const signup = async (req, res, next) => {
-  const { name, email, password,coachCode } = req.body;
+  const { name, email, password, coachCode } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ message: "Please fill all the fields" });
   }
-
 
   const existingUser = await User.findOne({ email });
   if (existingUser) {
@@ -22,12 +22,12 @@ export const signup = async (req, res, next) => {
   }
 
   let coach = null;
-    if (coachCode) {
-      coach = await Coach.findOne({ coachCode });
-      if (!coach) {
-        return res.status(400).json({ message: "Invalid coach code" });
-      }
+  if (coachCode) {
+    coach = await Coach.findOne({ coachCode });
+    if (!coach) {
+      return res.status(400).json({ message: "Invalid coach code" });
     }
+  }
 
   const user = await User.create({
     name,
@@ -35,12 +35,15 @@ export const signup = async (req, res, next) => {
     password,
     coach: coach ? coach._id : null,
   });
-
   
+
+  if (coach) {
+    coach.players.push(user._id);
+    await coach.save();
+  }
 
   generateToken(user, "User created successfully", 200, res);
 };
-
 
 
 // ================== LOGIN ==================
@@ -97,19 +100,27 @@ export const logout = (req, res) => {
 };
 
 
-export const getMyProfile=async(req,res)=>{
+export const getMyProfile = async (req, res) => {
   try {
-    const userInfo=req.user;
-   return res.status(200).json({
-      message:"User show Details",
-      userInfo
-    })
+    const user = await User.findById(req.user._id)
+    .populate("coach", "name email coachCode") // show selected coach fields
+    .select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      message: "User details fetched successfully",
+      user,
+    });
   } catch (err) {
-    return res.status(400).json({
-      message:"Not fetch Details"
-    })
+    return res.status(500).json({
+      message: "Failed to fetch user details",
+      error: err.message,
+    });
   }
-}
+};
 
 
 // Update user profile
