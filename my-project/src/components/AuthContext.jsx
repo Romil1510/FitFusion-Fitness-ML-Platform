@@ -1,37 +1,37 @@
-// src/context/AuthContext.js
+// src/components/AuthContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
 
-// 1. Create Context
 const AuthContext = createContext();
 
-// 2. Provider Component
 export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userData, setUserData] = useState(null);
 
-  // Optional: load from localStorage on app start
-  useEffect(() => {
-    const auth = localStorage.getItem("auth");
-    if (auth === "true") {
-      setIsLoggedIn(true);
-    }
-  }, []);
-
-  const login = () => {
-    localStorage.setItem("auth", "true");
+  const login = (user) => {
     setIsLoggedIn(true);
+    setUserData(user);
+    localStorage.setItem("user", JSON.stringify(user));
   };
 
   const logout = () => {
-    localStorage.removeItem("auth");
     setIsLoggedIn(false);
+    setUserData(null);
+    localStorage.removeItem("user");
   };
 
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setIsLoggedIn(true);
+      setUserData(JSON.parse(storedUser));
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, logout, userData }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// 3. Custom hook to use AuthContext
 export const useAuth = () => useContext(AuthContext);
