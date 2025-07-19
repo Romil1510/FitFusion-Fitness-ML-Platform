@@ -1,6 +1,7 @@
 import React from 'react';
 import Navbar from './Navbar';
 import { FaBolt } from 'react-icons/fa';
+import { NavLink } from 'react-router';
 
 function LandingPage () {
   return (
@@ -29,9 +30,9 @@ function LandingPage () {
 
                 {/* CTA Buttons */}
                 <div className="flex flex-col sm:flex-row gap-4">
-                <a href="#" className="bg-gradient-to-r from-blue-500 to-green-500 text-white px-6 py-3 rounded-lg font-semibold text-center shadow hover:opacity-90 transition">
+                <NavLink to="/signup" className="bg-gradient-to-r from-blue-500 to-green-500 text-white px-6 py-3 rounded-lg font-semibold text-center shadow hover:opacity-90 transition">
                     Start Your Journey →
-                </a>
+                </NavLink>
                 <a href="#" className="bg-white text-gray-800 border border-gray-300 px-6 py-3 rounded-lg font-semibold text-center shadow hover:bg-gray-100 transition">
                     View Demo
                 </a>
