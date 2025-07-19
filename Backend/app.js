@@ -10,11 +10,10 @@ import mlRoutes from "./routes/mlRoute.js";
  dotenv.config({ path: './config/config.env' });
 
 
- app.use(cors({
-    origin: [process.env.FRONTEND_URL,process.env.BACKEND_URL],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-}))
+  app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true, // allow cookies & headers
+  }));
 
 app.use(cookieParser());
 app.use(express.json());
