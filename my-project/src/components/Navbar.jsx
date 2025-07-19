@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { FaHome, FaFileAlt, FaCalendarAlt, FaUser, FaBars, FaTimes } from "react-icons/fa";
+import { FaHome, FaFileAlt, FaCalendarAlt, FaUser, FaBars, FaTimes, FaUserCircle } from "react-icons/fa";
 import { NavLink } from 'react-router';
+import {useAuth} from "./AuthContext"
 
 function Navbar() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
+    const { isLoggedIn, login, logout } = useAuth(); 
     const getNavLinkClass = ({ isActive }) =>
         `flex items-center px-4 py-2 rounded-lg transition ${
             isActive ? 'bg-blue-100 text-blue-500 font-semibold' : 'text-gray-600 hover:text-blue-400'
@@ -66,20 +67,30 @@ function Navbar() {
                     </div>
                     
                     {/* Right Auth Buttons */}
-                    <div className="hidden lg:flex md:flex flex items-center space-x-6 text-base font-medium">
-                        <NavLink to="/login" className={({ isActive }) =>
-                            `transition ${
-                                isActive ? 'text-blue-500 font-semibold' : 'text-gray-600 hover:text-blue-400'
-                            }`
-                        }>Sign In</NavLink>
-                        <NavLink
-                            to="/signup"
-                            className="bg-gradient-to-r from-blue-400 to-green-400 text-white px-6 py-3 rounded-full font-semibold shadow-md hover:opacity-90 transition"
-
-                        >
-                            Get Started
-                        </NavLink>
-                    </div>
+                    {
+                        isLoggedIn?(
+                            <div className="flex items-center space-x-4">
+          <FaUserCircle className="text-2xl text-blue-500" />
+          <button onClick={logout} className="text-red-500 text-sm">Logout</button>
+        </div>
+                        ):(
+                            <div className="hidden lg:flex md:flex flex items-center space-x-6 text-base font-medium">
+                            <NavLink to="/login" className={({ isActive }) =>
+                                `transition ${
+                                    isActive ? 'text-blue-500 font-semibold' : 'text-gray-600 hover:text-blue-400'
+                                }`
+                            }>Sign In</NavLink>
+                            <NavLink
+                                to="/signup"
+                                className="bg-gradient-to-r from-blue-400 to-green-400 text-white px-6 py-3 rounded-full font-semibold shadow-md hover:opacity-90 transition"
+    
+                            >
+                                Get Started
+                            </NavLink>
+                        </div>
+                        )
+                    }
+                   
                 </div>
             </div>
 
