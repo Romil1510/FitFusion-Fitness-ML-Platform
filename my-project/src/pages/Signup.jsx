@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { FaEnvelope, FaLock } from 'react-icons/fa';
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, Navigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
+import {useAuth} from "../components/AuthContext.jsx"
 
 const Signup = () => {
+  const { isLoggedIn, login, logout } = useAuth(); 
   const [name, Setname] = useState("");
   const [email, Setemail] = useState("");
   const [password, Setpassword] = useState("");
@@ -23,15 +25,19 @@ const Signup = () => {
         }
       );
       toast.success(res.data.message);
+      navigateTo("/");
       Setname("");
       Setpassword("");
       Setemail("");
-      navigateTo("/");
+      
     } catch (error) {
       toast.error(error.response?.data?.message || "Signup failed");
     }
   };
 
+  if(isLoggedIn){
+    return <Navigate to={"/"}/>;
+  }
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 px-4 top-0">
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
