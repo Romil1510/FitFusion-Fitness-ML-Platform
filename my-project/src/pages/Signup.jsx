@@ -1,7 +1,35 @@
-import React from "react";
+import React, { use, useContext, useState } from "react";
 import { FaEnvelope, FaLock } from 'react-icons/fa';
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 const Signup=()=>{
+
+
+    const[name,Setname]=useState("")
+    const[email,Setemail]=useState("")
+    const[password,Setpassword]=useState("")
+
+    const navigateTo = useNavigate();
+
+const handleRegister=async(e)=>{
+    e.preventDefault();
+    try {
+        await axios.post("http://localhost:5000/api/auth/signup",{name,email,password},{
+            withCredentials:true,
+            headers:{
+                "Content-Type":"application/json"
+            }
+        }).then((res)=>{
+            toast.success(res.data.message)
+            navigateTo("/")
+            Setname("")
+            Setpassword("")
+            Setemail("")
+        });
+    } catch (error) {
+        
+    }
+}
+
     return(
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 px-4 top-0">
              
@@ -19,13 +47,16 @@ const Signup=()=>{
         </p>
 
         {/* Email */}
+        <form onSubmit={handleRegister}>
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
           <div className="flex items-center border border-gray-300 rounded-md px-3 py-2">
             <FaEnvelope className="text-gray-400 mr-2" />
             <input
               type="username"
+              value={name}
               placeholder="Rohan Patel"
+              onChange={(e)=>Setname(e.target.value)}
               className="w-full outline-none text-sm text-gray-700 bg-transparent"
             />
           </div>
@@ -36,7 +67,9 @@ const Signup=()=>{
             <FaEnvelope className="text-gray-400 mr-2" />
             <input
               type="email"
+              value={email}
               placeholder="your@email.com"
+              onChange={(e)=>Setemail(e.target.value)}
               className="w-full outline-none text-sm text-gray-700 bg-transparent"
             />
           </div>
@@ -49,7 +82,9 @@ const Signup=()=>{
             <FaLock className="text-gray-400 mr-2" />
             <input
               type="password"
+              value={password}
               placeholder="••••••••"
+              onChange={(e)=>Setpassword(e.target.value)}
               className="w-full outline-none text-sm text-gray-700 bg-transparent"
             />
           </div>
@@ -61,7 +96,7 @@ const Signup=()=>{
         </div>
 
         {/* Sign In Button */}
-        <button className="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white py-2.5 rounded-md font-semibold shadow-md hover:opacity-90 transition mb-4">
+        <button type="submit" className="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white py-2.5 rounded-md font-semibold shadow-md hover:opacity-90 transition mb-4">
           Sign Up
         </button>
 
@@ -72,6 +107,7 @@ const Signup=()=>{
             Sign In
           </NavLink>
         </p>
+        </form>
 
         {/* Divider */}
         {/* <div className="flex items-center justify-center text-gray-400 text-xs uppercase mb-4">

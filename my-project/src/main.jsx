@@ -4,10 +4,14 @@ import './index.css'
 import Dashboard from './pages/Dashboard.jsx'
 import App from './App.jsx'
 import Signin from './pages/Signin.jsx'
+import { AuthProvider } from './components/AuthContext.jsx'
 
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
+  <AuthProvider>
+<StrictMode>
     <App />
   </StrictMode>,
+  </AuthProvider>
+  
 )
