@@ -1,33 +1,45 @@
-// src/context/AuthContext.js
-import { createContext, useContext, useState, useEffect } from 'react';
+// src/components/AuthContext.jsx
+import { createContext, useContext, useState, useEffect } from "react";
+import axios from "axios";
 
+// Create Context
 const AuthContext = createContext();
 
+// Provider Component
 export const AuthProvider = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null); // holds logged-in user
 
+  // Check if user is logged in (optional, can use cookies on backend)
   useEffect(() => {
-    const auth = localStorage.getItem("authToken");
-    if (auth) {
-      setIsLoggedIn(true);
-    }
+    axios
+      .get("http://localhost:5000/api/auth/me", { withCredentials: true })
+      .then((res) => {
+        setUser(res.data.user);
+      })
+      .catch(() => {
+        setUser(null);
+      });
   }, []);
 
-  const login = (token) => {
-    localStorage.setItem("authToken", token);
-    setIsLoggedIn(true);
+  const login = (userData) => {
+    setUser(userData);
   };
 
-  const logout = () => {
-    localStorage.removeItem("authToken");
-    setIsLoggedIn(false);
+  const logout = async () => {
+    try {
+      await axios.post("http://localhost:5000/api/auth/logout", {}, { withCredentials: true });
+      setUser(null);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn: !!user, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
+// Hook
 export const useAuth = () => useContext(AuthContext);
