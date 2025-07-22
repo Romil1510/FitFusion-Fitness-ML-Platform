@@ -43,22 +43,23 @@ function Navbar() {
           </div>
 
           {isLoggedIn ? (
-            <div className="flex items-center space-x-4">
-              {userData?.profilePic ? (
-                <img src={userData.profilePic} alt="Profile" className="w-8 h-8 rounded-full" />
-              ) : (
-                <FaUserCircle className="text-2xl text-blue-500" />
-              )}
-              <button onClick={logout} className="text-red-500 text-sm">Logout</button>
-            </div>
-          ) : (
-            <div className="hidden lg:flex md:flex items-center space-x-6 text-base font-medium">
-              <NavLink to="/login" className={({ isActive }) => `transition ${isActive ? 'text-blue-500 font-semibold' : 'text-gray-600 hover:text-blue-400'}`}>Sign In</NavLink>
-              <NavLink to="/signup" className="bg-gradient-to-r from-blue-400 to-green-400 text-white px-6 py-3 rounded-full font-semibold shadow-md hover:opacity-90 transition">
-                Get Started
-              </NavLink>
-            </div>
-          )}
+  <div className="flex items-center space-x-4">
+    <FaUserCircle className="text-2xl text-blue-500" />
+    <button onClick={logout} className="text-red-500 text-sm">Logout</button>
+  </div>
+) : (
+  <div className="hidden lg:flex md:flex items-center space-x-6 text-base font-medium">
+    <NavLink to="/login" className={({ isActive }) =>
+      `transition ${isActive ? 'text-blue-500 font-semibold' : 'text-gray-600 hover:text-blue-400'}`
+    }>Sign In</NavLink>
+    <NavLink
+      to="/signup"
+      className="bg-gradient-to-r from-blue-400 to-green-400 text-white px-6 py-3 rounded-full font-semibold shadow-md hover:opacity-90 transition"
+    >
+      Get Started
+    </NavLink>
+  </div>
+)}
         </div>
       </div>
 
