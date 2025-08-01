@@ -64,7 +64,14 @@ function Navbar() {
           {/* Auth Buttons */}
           {isLoggedIn ? (
             <div className="flex items-center space-x-4">
-              <FaUserCircle className="text-2xl text-blue-500" />
+              <NavLink to="/profile">
+  <FaUserCircle className="text-2xl text-blue-500 cursor-pointer hover:text-blue-600 transition" />
+</NavLink>
+<NavLink to="/ml-form" className={getNavLinkClass}>
+    <FaFileAlt className="mr-2" />
+    Predict Plan
+  </NavLink>
+
               <button onClick={logout} className="text-red-500 text-sm hover:underline">
                 Logout
               </button>

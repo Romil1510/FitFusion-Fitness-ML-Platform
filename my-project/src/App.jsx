@@ -9,6 +9,8 @@ import { Route, BrowserRouter as Router, Routes } from "react-router-dom"
 import Home from './pages/Home.jsx'
 import Signup from './pages/Signup.jsx'
 import { ToastContainer, toast } from 'react-toastify';
+import UserProfile from './pages/UserProfile.jsx'
+import MLForm from './pages/MLForm.jsx'
 
 function App() {
 
@@ -20,6 +22,8 @@ function App() {
     <Route path="/" element={<Home />} />
     <Route path='/login' element={<Signin/>}/>
     <Route path='/signup' element={<Signup/>}/>
+    <Route path="/profile" element={<UserProfile />} />
+    <Route path="/ml-form" element={<MLForm />} />
     </Routes>
     <ToastContainer />
     </Router>
