@@ -4,6 +4,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { FaHome, FaFileAlt, FaCalendarAlt, FaUser, FaBars, FaTimes, FaUserCircle, FaSignOutAlt } from "react-icons/fa";
 import { useAuth } from "./AuthContext";
 
+
 function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -58,14 +59,22 @@ function Navbar() {
               <FaFileAlt className="mr-2" />
               Get Started
             </NavLink>
-            <NavLink to="/ke" className={getNavLinkClass}>
+            <NavLink to="/myplan" className={getNavLinkClass}>
               <FaCalendarAlt className="mr-2" />
               My Plans
             </NavLink>
-            <NavLink to="/dashboard" className={getNavLinkClass}>
+            <NavLink to="/coach/signup" className={getNavLinkClass}>
+              <FaHome className="mr-2" />
+              Coach Signup
+            </NavLink>
+            <NavLink to="/coach/login" className={getNavLinkClass}>
+              <FaHome className="mr-2" />
+              Coach Login
+            </NavLink>
+            {/* <NavLink to="/dashboard" className={getNavLinkClass}>
               <FaUser className="mr-2" />
               Dashboard
-            </NavLink>
+            </NavLink> */}
           </div>
 
           {/* Auth Buttons */}
