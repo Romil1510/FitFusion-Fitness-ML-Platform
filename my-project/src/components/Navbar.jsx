@@ -59,10 +59,10 @@ function Navbar() {
               <FaFileAlt className="mr-2" />
               Get Started
             </NavLink>
-            <NavLink to="/myplan" className={getNavLinkClass}>
+            {/* <NavLink to="/myplan" className={getNavLinkClass}>
               <FaCalendarAlt className="mr-2" />
               My Plans
-            </NavLink>
+            </NavLink> */}
             <NavLink to="/coach/signup" className={getNavLinkClass}>
               <FaHome className="mr-2" />
               Coach Signup
@@ -149,14 +149,14 @@ function Navbar() {
             <FaFileAlt className="mr-3" />
             Get Started
           </NavLink>
-          <NavLink to="/ke" className={getMobileNavClass} onClick={() => setIsMobileMenuOpen(false)}>
+          {/* <NavLink to="/ke" className={getMobileNavClass} onClick={() => setIsMobileMenuOpen(false)}>
             <FaCalendarAlt className="mr-3" />
             My Plans
           </NavLink>
           <NavLink to="/dashboard" className={getMobileNavClass} onClick={() => setIsMobileMenuOpen(false)}>
             <FaUser className="mr-3" />
             Dashboard
-          </NavLink>
+          </NavLink> */}
           
           {isLoggedIn && (
             <NavLink to="/ml-form" className={getMobileNavClass} onClick={() => setIsMobileMenuOpen(false)}>

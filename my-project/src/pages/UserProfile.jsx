@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../components/AuthContext";
+import { useDataSync } from "../components/DataSyncContext";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { FaUser, FaRulerVertical, FaWeight, FaVenusMars, FaBullseye, FaGraduationCap, FaCalendarAlt, FaRunning, FaFirstAid, FaSpinner, FaSave } from "react-icons/fa";
 
 function UserProfile() {
-  const { logout } = useAuth();
+  const { user, logout, isLoggedIn } = useAuth();
+  const { triggerRefresh } = useDataSync();
   const navigate = useNavigate();
   
   // User data state
-  const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
@@ -35,7 +38,16 @@ function UserProfile() {
   // Display state
   const [activeDay, setActiveDay] = useState("Monday");
 
-  // FIXED: Initialize state from localStorage on mount
+  // Helper functions to get display data
+  const getDisplaySchedule = () => {
+    return result?.schedule || userData?.mlPrediction?.schedule || null;
+  };
+
+  const getCurrentPredictionData = () => {
+    return result || userData?.mlPrediction || null;
+  };
+
+  // Initialize state from localStorage
   const initializeFromStorage = () => {
     try {
       const storedData = localStorage.getItem('userFitnessPlan');
@@ -62,7 +74,7 @@ function UserProfile() {
     return null;
   };
 
-  // FIXED: Enhanced data fetching that merges all sources
+  // Enhanced data fetching that merges all sources
   const fetchCompleteUserData = async () => {
     try {
       setRefreshing(true);
@@ -73,17 +85,22 @@ function UserProfile() {
       // Try to fetch from backend
       let backendData = null;
       try {
-        const res = await axios.get("http://localhost:5000/api/auth/me", { withCredentials: true });
+        const res = await axios.get("http://localhost:5000/api/auth/me", { 
+          withCredentials: true,
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
         backendData = res.data.user;
       } catch (backendError) {
         console.log("Backend fetch failed, using stored data only");
       }
       
       // Merge backend data with stored data (stored data takes precedence for ML predictions)
-      let mergedData = backendData || { name: "User", email: "user@example.com" };
+      let mergedData = backendData || user || { name: "User", email: "user@example.com" };
       
       if (storedData && storedData.mlPrediction) {
-        // If we have newer stored ML data, use it
         const storedTimestamp = new Date(storedData.mlPrediction.generatedAt || 0);
         const backendTimestamp = new Date(backendData?.mlPrediction?.generatedAt || 0);
         
@@ -93,7 +110,7 @@ function UserProfile() {
         }
       }
       
-      setUser(mergedData);
+      setUserData(mergedData);
       
       // Update form data and active day if ML prediction exists
       if (mergedData.mlPrediction) {
@@ -114,9 +131,9 @@ function UserProfile() {
       // Fallback to stored data only
       const storedData = initializeFromStorage();
       if (storedData) {
-        setUser(storedData);
+        setUserData(storedData);
         return storedData;
-      } else {
+      } else if (!isLoggedIn) {
         navigate("/login");
       }
     } finally {
@@ -125,10 +142,14 @@ function UserProfile() {
     }
   };
 
-  // FIXED: Initialize on component mount
+  // Initialize on component mount
   useEffect(() => {
-    fetchCompleteUserData();
-  }, [navigate]);
+    if (isLoggedIn) {
+      fetchCompleteUserData();
+    } else {
+      navigate("/login");
+    }
+  }, [isLoggedIn, navigate]);
 
   // Find first training day helper
   const findFirstTrainingDay = (schedule) => {
@@ -137,15 +158,23 @@ function UserProfile() {
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
     for (const day of days) {
       const daySchedule = schedule[day];
-      if (daySchedule && daySchedule.length > 0 && 
-          !daySchedule.some(ex => ex.toLowerCase().includes('rest'))) {
-        return day;
+      if (daySchedule && Array.isArray(daySchedule) && daySchedule.length > 0) {
+        // Check if it's not just rest exercises
+        const hasActualExercises = daySchedule.some(exercise => 
+          exercise && 
+          typeof exercise === 'string' && 
+          !exercise.toLowerCase().includes('rest') &&
+          exercise.trim() !== ''
+        );
+        if (hasActualExercises) {
+          return day;
+        }
       }
     }
     return "Monday";
   };
 
-  // FIXED: Enhanced refresh that shows latest data
+  // Enhanced refresh that shows latest data
   const handleRefresh = async () => {
     console.log('Refreshing data...');
     await fetchCompleteUserData();
@@ -168,7 +197,7 @@ function UserProfile() {
     }
   };
 
-  // ML Prediction submission
+  // ML Prediction submission with immediate schedule display
   const handleMLSubmit = async (e) => {
     e.preventDefault();
     setPredicting(true);
@@ -193,14 +222,35 @@ function UserProfile() {
       const prediction = res.data;
       
       console.log('Flask API Response:', prediction);
+      console.log('Raw schedule data:', prediction.schedule_general_fitness);
+
+      // Better schedule processing
+      let scheduleData = {};
       
+      // Try different possible schedule keys from the API response
+      if (prediction.schedule_general_fitness) {
+        scheduleData = prediction.schedule_general_fitness;
+      } else if (prediction.schedule) {
+        scheduleData = prediction.schedule;
+      } else if (prediction['weekly_schedule']) {
+        scheduleData = prediction['weekly_schedule'];
+      }
+
+      console.log('Processed schedule data:', scheduleData);
+      
+      // Ensure schedule has proper structure
+      if (!scheduleData || typeof scheduleData !== 'object') {
+        console.warn('No valid schedule data found');
+        scheduleData = {};
+      }
+
       // Process the response
       const processedResult = {
         calories: Array.isArray(prediction["according to your goal calories you should take"]) 
           ? prediction["according to your goal calories you should take"][0]
           : prediction["according to your goal calories you should take"],
         goal: Array.isArray(prediction.goal) ? prediction.goal[0] : prediction.goal,
-        schedule: prediction.schedule_general_fitness || {},
+        schedule: scheduleData,
         sportsExercise: prediction.special_sports_exercise || [],
         originalResponse: prediction,
         formData: formData,
@@ -208,23 +258,28 @@ function UserProfile() {
         trainingFrequency: parseInt(formData.trainingFrequency)
       };
       
+      console.log('Final processed result:', processedResult);
+      
       setResult(processedResult);
       
-      // Set active day to first training day
-      const firstTrainingDay = findFirstTrainingDay(processedResult.schedule);
-      setActiveDay(firstTrainingDay);
+      // Immediately update the active day to show the first training day
+      if (processedResult.schedule && Object.keys(processedResult.schedule).length > 0) {
+        const firstTrainingDay = findFirstTrainingDay(processedResult.schedule);
+        setActiveDay(firstTrainingDay);
+        console.log('Set active day to:', firstTrainingDay);
+      }
       
     } catch (error) {
       console.error("Prediction error:", error);
-      alert("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
     }
     setPredicting(false);
   };
 
-  // FIXED: Enhanced save function that ensures persistence
+  // Enhanced save function that ensures persistence
   const saveToProfile = async () => {
     if (!result) {
-      alert("Please generate a fitness plan first!");
+      toast.error("Please generate a fitness plan first!");
       return;
     }
 
@@ -235,27 +290,54 @@ function UserProfile() {
       const profileData = { 
         mlPrediction: {
           ...result,
-          savedAt: new Date().toISOString() // Add save timestamp
+          savedAt: new Date().toISOString()
         }
       };
 
-      // CRITICAL: Save to localStorage first (immediate persistence)
+      // Save to localStorage first (immediate persistence)
       localStorage.setItem('userFitnessPlan', JSON.stringify(profileData));
       console.log('Saved to localStorage:', profileData);
       
       // Update local state immediately
-      setUser(prev => ({ ...prev, ...profileData }));
+      setUserData(prev => ({ ...prev, ...profileData }));
       
-      // Try backend save (optional, but recommended)
+      // Try backend save
       try {
         const backendResponse = await axios.post(
           "http://localhost:5000/api/auth/update", 
           profileData, 
-          { withCredentials: true }
+          { 
+            withCredentials: true,
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache'
+            }
+          }
         );
-        console.log('Saved to backend successfully:', backendResponse.data);
+        
+        if (backendResponse.status === 200) {
+          console.log('Saved to backend successfully:', backendResponse.data);
+          
+          // Notify CoachDashboard to refresh data
+          triggerRefresh('coachDashboard', {
+            userId: user?._id,
+            action: 'profileUpdate',
+            timestamp: new Date().toISOString()
+          });
+
+          // Emit window event for cross-tab sync
+          window.dispatchEvent(new CustomEvent('userDataUpdated', {
+            detail: {
+              userId: user?._id,
+              timestamp: new Date().toISOString()
+            }
+          }));
+          
+          toast.success("Fitness plan saved successfully!");
+        }
       } catch (backendError) {
         console.log("Backend save failed, but localStorage save succeeded");
+        toast.warning("Plan saved locally. Backend sync may take a moment.");
       }
 
       setSaveSuccess(true);
@@ -265,7 +347,7 @@ function UserProfile() {
 
     } catch (error) {
       console.error("Save error:", error);
-      alert("Failed to save to profile. Please try again.");
+      toast.error("Failed to save to profile. Please try again.");
     }
     setSaving(false);
   };
@@ -278,18 +360,36 @@ function UserProfile() {
   };
 
   const getTrainingStats = () => {
-    if (!user?.mlPrediction?.schedule) return { training: 0, rest: 7 };
+    const schedule = getDisplaySchedule();
+    if (!schedule) return { training: 0, rest: 7 };
     
-    const trainingDays = Object.keys(user.mlPrediction.schedule).filter(day => {
-      const daySchedule = user.mlPrediction.schedule[day];
-      return daySchedule && daySchedule.length > 0 && 
-             !daySchedule.some(ex => ex.toLowerCase().includes('rest'));
+    const trainingDays = Object.keys(schedule).filter(day => {
+      const daySchedule = schedule[day];
+      return daySchedule && Array.isArray(daySchedule) && daySchedule.length > 0 && 
+             daySchedule.some(exercise => 
+               exercise && 
+               typeof exercise === 'string' && 
+               !exercise.toLowerCase().includes('rest') &&
+               exercise.trim() !== ''
+             );
     });
     
     return {
       training: trainingDays.length,
       rest: 7 - trainingDays.length
     };
+  };
+
+  // Function to check if a day is a training day
+  const isTrainingDay = (daySchedule) => {
+    if (!Array.isArray(daySchedule) || daySchedule.length === 0) return false;
+    
+    return daySchedule.some(exercise => 
+      exercise && 
+      typeof exercise === 'string' && 
+      !exercise.toLowerCase().includes('rest') &&
+      exercise.trim() !== ''
+    );
   };
 
   // Loading screen
@@ -301,11 +401,12 @@ function UserProfile() {
     );
   }
 
-  const userData = user || { name: "User", email: "user@example.com" };
+  const currentUser = userData || user || { name: "User", email: "user@example.com" };
   const trainingStats = getTrainingStats();
+  const currentPrediction = getCurrentPredictionData();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-20 px-4">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* HEADER */}
@@ -313,15 +414,14 @@ function UserProfile() {
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="flex items-center mb-4 md:mb-0">
               <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-400 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold mr-4">
-                {userData.name?.charAt(0) || "U"}
+                {currentUser.name?.charAt(0) || "U"}
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-800">{userData.name}</h1>
-                <p className="text-gray-600">{userData.email}</p>
-                {/* Show data freshness indicator */}
-                {userData.mlPrediction?.savedAt && (
+                <h1 className="text-3xl font-bold text-gray-800">{currentUser.name}</h1>
+                <p className="text-gray-600">{currentUser.email}</p>
+                {currentUser.mlPrediction?.savedAt && (
                   <p className="text-xs text-green-600">
-                    Last saved: {new Date(userData.mlPrediction.savedAt).toLocaleString()}
+                    Last saved: {new Date(currentUser.mlPrediction.savedAt).toLocaleString()}
                   </p>
                 )}
               </div>
@@ -624,10 +724,7 @@ function UserProfile() {
                   <div className="bg-indigo-50 p-4 rounded-xl">
                     <p className="text-sm text-indigo-600 font-medium">Training Schedule</p>
                     <p className="font-semibold text-gray-800">
-                      {Object.keys(result.schedule).length} training days per week
-                    </p>
-                    <p className="text-xs text-indigo-700 mt-1">
-                      Days: {Object.keys(result.schedule).join(', ')}
+                      {trainingStats.training} training days, {trainingStats.rest} rest days per week
                     </p>
                   </div>
 
@@ -655,159 +752,7 @@ function UserProfile() {
           </div>
         </div>
 
-        {/* PROFILE INFORMATION CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          
-          {/* Account Info Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="flex items-center mb-4">
-              <div className="p-2 rounded-lg bg-blue-100 mr-3">
-                <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold text-gray-800">Account Info</h2>
-            </div>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Role</span>
-                <span className="font-medium">{userData.role || "User"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Training Days</span>
-                <span className="font-medium text-indigo-600">
-                  {trainingStats.training} days/week
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Experience</span>
-                <span className="font-medium text-blue-600">
-                  {userData.mlPrediction?.formData?.experience || "Not set"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Goal</span>
-                <span className="font-medium">{formatGoal(userData.mlPrediction?.goal) || "Not set"}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Health Profile Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="flex items-center mb-4">
-              <div className="p-2 rounded-lg bg-red-100 mr-3">
-                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold text-gray-800">Health Profile</h2>
-            </div>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Injuries</span>
-                <span className={`font-medium ${
-                  userData.mlPrediction?.formData?.hasInjuries ? 'text-red-600' : 'text-green-600'
-                }`}>
-                  {userData.mlPrediction?.formData?.hasInjuries ? "Yes" : "No"}
-                </span>
-              </div>
-
-              {/* Physical Stats */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-green-50 p-2 rounded-lg text-center">
-                  <p className="text-xs text-green-600">Age</p>
-                  <p className="font-semibold text-sm">{userData.mlPrediction?.formData?.age || 'N/A'}</p>
-                </div>
-                <div className="bg-blue-50 p-2 rounded-lg text-center">
-                  <p className="text-xs text-blue-600">Weight</p>
-                  <p className="font-semibold text-sm">{userData.mlPrediction?.formData?.weight || 'N/A'}kg</p>
-                </div>
-                <div className="bg-purple-50 p-2 rounded-lg text-center">
-                  <p className="text-xs text-purple-600">Height</p>
-                  <p className="font-semibold text-sm">{userData.mlPrediction?.formData?.height || 'N/A'}cm</p>
-                </div>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-gray-600">Gender</span>
-                <span className="font-medium capitalize">
-                  {userData.mlPrediction?.formData?.gender || "Not set"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Sport</span>
-                <span className="font-medium capitalize">
-                  {userData.mlPrediction?.formData?.sport || "General"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* ML Predictions Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="flex items-center mb-4">
-              <div className="p-2 rounded-lg bg-purple-100 mr-3">
-                <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold text-gray-800">ML Predictions</h2>
-            </div>
-            {userData.mlPrediction ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-sm text-blue-600">Goal</p>
-                    <p className="font-semibold text-sm">{formatGoal(userData.mlPrediction.goal)}</p>
-                  </div>
-                  <div className="bg-orange-50 p-3 rounded-lg">
-                    <p className="text-sm text-orange-600">Calories</p>
-                    <p className="font-semibold">{Math.round(userData.mlPrediction.calories)} kcal</p>
-                  </div>
-                </div>
-
-                {userData.mlPrediction.savedAt && (
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-600">Last Saved</p>
-                    <p className="font-semibold text-sm">
-                      {new Date(userData.mlPrediction.savedAt).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                  </div>
-                )}
-
-                <div>
-                  <p className="text-gray-600 mb-2">Special Exercises</p>
-                  <div className="flex flex-wrap gap-2">
-                    {userData.mlPrediction.sportsExercise?.length > 0 ? (
-                      userData.mlPrediction.sportsExercise.map((exercise, index) => (
-                        <span key={index} className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-                          {exercise}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-gray-500 text-sm">No exercises saved</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-4 text-gray-500">
-                <svg className="h-12 w-12 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p>No saved predictions</p>
-                <p className="text-xs mt-1">Generate a plan above</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* WEEKLY SCHEDULE */}
+        {/* WEEKLY SCHEDULE - COMPLETELY FIXED */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
@@ -817,9 +762,14 @@ function UserProfile() {
                 </svg>
               </div>
               <h2 className="text-xl font-semibold text-gray-800">Weekly Schedule</h2>
+              {result && !currentUser?.mlPrediction && (
+                <span className="ml-3 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
+                  Unsaved Plan
+                </span>
+              )}
             </div>
             
-            {userData.mlPrediction?.schedule && (
+            {getDisplaySchedule() && (
               <div className="flex gap-4 text-sm">
                 <div className="bg-green-100 px-3 py-1 rounded-full">
                   <span className="text-green-700 font-medium">{trainingStats.training} Training</span>
@@ -831,20 +781,13 @@ function UserProfile() {
             )}
           </div>
           
-          {userData.mlPrediction?.schedule ? (
+          {getDisplaySchedule() ? (
             <>
-              {/* Debug Info */}
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Schedule Days:</strong> {Object.keys(userData.mlPrediction.schedule).length} days - {Object.keys(userData.mlPrediction.schedule).join(', ')}
-                </p>
-              </div>
-
               {/* Day Selector */}
               <div className="flex flex-wrap gap-2 mb-6">
-                {Object.keys(userData.mlPrediction.schedule).map(day => {
-                  const daySchedule = userData.mlPrediction.schedule[day] || [];
-                  const isTrainingDay = daySchedule.length > 0;
+                {Object.keys(getDisplaySchedule()).map(day => {
+                  const daySchedule = getDisplaySchedule()[day] || [];
+                  const dayIsTraining = isTrainingDay(daySchedule);
                   
                   return (
                     <button
@@ -853,13 +796,13 @@ function UserProfile() {
                       className={`px-4 py-2 rounded-full text-sm font-medium transition-colors relative ${
                         activeDay === day 
                           ? 'bg-indigo-600 text-white' 
-                          : isTrainingDay
+                          : dayIsTraining
                           ? 'bg-green-100 text-green-700 hover:bg-green-200'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
                       {day.substring(0, 3)}
-                      {isTrainingDay && (
+                      {dayIsTraining && (
                         <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></span>
                       )}
                     </button>
@@ -871,30 +814,46 @@ function UserProfile() {
               <div className="border border-gray-200 rounded-xl p-5 bg-gradient-to-br from-gray-50 to-white">
                 <h3 className="font-bold text-xl text-center text-indigo-700 mb-5">{activeDay}</h3>
                 
-                {userData.mlPrediction.schedule[activeDay] && userData.mlPrediction.schedule[activeDay].length > 0 ? (
+                {getDisplaySchedule()[activeDay] && Array.isArray(getDisplaySchedule()[activeDay]) && getDisplaySchedule()[activeDay].length > 0 ? (
                   <div className="space-y-4">
-                    {userData.mlPrediction.schedule[activeDay].map((exercise, index) => (
-                      <div key={index} className="flex items-start p-3 bg-white rounded-lg shadow-sm border border-green-200">
-                        <div className="flex-shrink-0 w-20 py-1 px-2 bg-indigo-100 text-indigo-700 rounded text-xs font-medium text-center mr-4">
-                          #{index + 1}
-                        </div>
-                        <div className="flex-grow">
-                          <p className="text-gray-800 font-medium">{exercise}</p>
-                        </div>
-                        <div className="flex-shrink-0">
-                          <div className="w-6 h-6 rounded-full border-2 border-green-500 flex items-center justify-center">
-                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    {getDisplaySchedule()[activeDay].map((exercise, index) => {
+                      // Handle empty or rest exercises
+                      if (!exercise || exercise.trim() === '' || exercise.toLowerCase().includes('rest')) {
+                        return (
+                          <div key={index} className="flex items-center justify-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="text-gray-600 font-medium flex items-center">
+                              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 718.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                              </svg>
+                              Rest Day
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div key={index} className="flex items-start p-3 bg-white rounded-lg shadow-sm border border-green-200">
+                          <div className="flex-shrink-0 w-20 py-1 px-2 bg-indigo-100 text-indigo-700 rounded text-xs font-medium text-center mr-4">
+                            #{index + 1}
+                          </div>
+                          <div className="flex-grow">
+                            <p className="text-gray-800 font-medium">{exercise}</p>
+                          </div>
+                          <div className="flex-shrink-0">
+                            <div className="w-6 h-6 rounded-full border-2 border-green-500 flex items-center justify-center">
+                              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     <svg className="h-12 w-12 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 009.586 13H7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 718.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                     </svg>
-                    <p>No exercises scheduled for {activeDay}</p>
+                    <p>Rest Day - No exercises scheduled for {activeDay}</p>
                   </div>
                 )}
               </div>
@@ -902,11 +861,16 @@ function UserProfile() {
               {/* Week Overview */}
               <div className="mt-6">
                 <h4 className="font-semibold text-gray-700 mb-3">Week Overview</h4>
-                <div className="grid gap-2" style={{gridTemplateColumns: `repeat(${Object.keys(userData.mlPrediction.schedule).length}, 1fr)`}}>
-                  {Object.keys(userData.mlPrediction.schedule).map(day => {
-                    const daySchedule = userData.mlPrediction.schedule[day] || [];
-                    const exerciseCount = daySchedule.length;
-                    const isTrainingDay = exerciseCount > 0;
+                <div className="grid gap-2" style={{gridTemplateColumns: `repeat(${Object.keys(getDisplaySchedule()).length}, 1fr)`}}>
+                  {Object.keys(getDisplaySchedule()).map(day => {
+                    const daySchedule = getDisplaySchedule()[day] || [];
+                    const exerciseCount = Array.isArray(daySchedule) ? daySchedule.filter(ex => 
+                      ex && 
+                      typeof ex === 'string' && 
+                      ex.trim() !== '' && 
+                      !ex.toLowerCase().includes('rest')
+                    ).length : 0;
+                    const dayIsTraining = exerciseCount > 0;
                     
                     return (
                       <div 
@@ -914,7 +878,7 @@ function UserProfile() {
                         className={`p-2 rounded-lg text-center cursor-pointer transition-colors ${
                           activeDay === day 
                             ? 'bg-indigo-100 text-indigo-700 font-medium' 
-                            : isTrainingDay
+                            : dayIsTraining
                             ? 'bg-green-100 text-green-700 hover:bg-green-200'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
@@ -922,12 +886,12 @@ function UserProfile() {
                       >
                         <div className="text-xs">{day.substring(0, 3)}</div>
                         <div className={`text-lg font-bold ${
-                          isTrainingDay ? 'text-green-600' : 'text-gray-400'
+                          dayIsTraining ? 'text-green-600' : 'text-gray-400'
                         }`}>
-                          {exerciseCount || '0'}
+                          {exerciseCount}
                         </div>
                         <div className="text-xs">
-                          {isTrainingDay ? 'exercises' : 'rest'}
+                          {dayIsTraining ? 'exercises' : 'rest'}
                         </div>
                       </div>
                     );
@@ -938,7 +902,7 @@ function UserProfile() {
           ) : (
             <div className="text-center py-8 text-gray-500">
               <svg className="h-12 w-12 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 715.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 515.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p>No schedule available</p>
               <p className="text-sm mt-2">Generate a fitness plan above to see your weekly schedule</p>

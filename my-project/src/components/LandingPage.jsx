@@ -10,10 +10,10 @@ function LandingPage() {
           {/* Left: Text Content */}
           <div className="flex-1 max-w-2xl">
             {/* Top Badge */}
-            <div className="inline-flex items-center bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold mb-6 shadow-sm">
+            {/* <div className="inline-flex items-center bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold mb-6 shadow-sm">
               <FaBolt className="text-blue-500 mr-2" />
               Trusted by 50,000+ Athletes Worldwide
-            </div>
+            </div> */}
 
             {/* Heading */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-gray-900 mb-6">
@@ -26,7 +26,7 @@ function LandingPage() {
             </p>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-8">
+            {/* <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-8">
               <div className="text-center">
                 <div className="text-3xl font-bold text-blue-600">95%</div>
                 <div className="text-sm text-gray-500">Success Rate</div>
@@ -35,11 +35,11 @@ function LandingPage() {
                 <div className="text-3xl font-bold text-green-600">10k+</div>
                 <div className="text-sm text-gray-500">Training Plans</div>
               </div>
-              <div className="text-center">
+              {/* <div className="text-center">
                 <div className="text-3xl font-bold text-purple-600">24/7</div>
                 <div className="text-sm text-gray-500">Support</div>
-              </div>
-            </div>
+              </div> */}
+            {/* </div> */} 
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
@@ -49,12 +49,12 @@ function LandingPage() {
               >
                 Start Your Journey <FaArrowRight className="ml-2" />
               </NavLink>
-              <a 
+              {/* <a 
                 href="#" 
                 className="inline-flex items-center justify-center bg-white text-gray-800 border border-gray-200 px-8 py-4 rounded-xl font-semibold shadow-md hover:shadow-lg hover:bg-gray-50 transition-all duration-300"
               >
                 View Demo
-              </a>
+              </a> */}
             </div>
           </div>
 

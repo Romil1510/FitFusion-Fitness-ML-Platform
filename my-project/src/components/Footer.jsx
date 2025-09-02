@@ -85,7 +85,7 @@ const Footer = () => {
                   <FaEnvelope />
                 </div>
                 <a href="mailto:support@athletex.com" className="text-gray-300 hover:text-white text-sm transition-colors duration-300">
-                  support@athletex.com
+                  support@Fitfusion.com
                 </a>
               </div>
               <div className="flex items-start">
@@ -93,14 +93,14 @@ const Footer = () => {
                   <FaPhoneAlt />
                 </div>
                 <a href="tel:+15551234567" className="text-gray-300 hover:text-white text-sm transition-colors duration-300">
-                  +1 (555) 123-4567
+                  +91 9876543210
                 </a>
               </div>
               <div className="flex items-start">
                 <div className="mt-1 mr-3 text-blue-400">
                   <FaMapMarkerAlt />
                 </div>
-                <span className="text-gray-300 text-sm">San Francisco, CA</span>
+                <span className="text-gray-300 text-sm">New Ranip,Ahmedabad</span>
               </div>
             </div>
 
@@ -129,7 +129,7 @@ const Footer = () => {
 
         {/* Bottom Footer */}
         <div className="flex flex-col md:flex-row justify-between items-center pt-8">
-          <p className="text-gray-400 text-sm">© 2025 AthleteX. All rights reserved.</p>
+          <p className="text-gray-400 text-sm">© 2025 FItfusion. All rights reserved.</p>
           
           <div className="flex space-x-6 mt-4 md:mt-0">
             {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((item) => (

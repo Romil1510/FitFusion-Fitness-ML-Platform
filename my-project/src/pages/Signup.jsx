@@ -46,7 +46,7 @@ const Signup = () => {
   if (isLoggedIn) return <Navigate to="/" />;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 px-4">
+    <div className="min-h-screen flex items-center justify-center py-20 bg-gradient-to-br from-blue-50 to-green-50 px-4">
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
         {/* Logo */}
         <div className="flex justify-center mb-3">

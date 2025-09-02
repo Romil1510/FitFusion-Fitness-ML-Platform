@@ -40,66 +40,39 @@ function MLForm() {
     }
   };
 
-  // Generate complete weekly schedule based on training frequency
-  const generateCompleteSchedule = (partialSchedule, frequency) => {
-    const allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const newSchedule = {};
+  // FIXED: Find first training day helper
+  const findFirstTrainingDay = (schedule) => {
+    if (!schedule) return "Monday";
     
-    // Initialize all days
-    allDays.forEach(day => {
-      newSchedule[day] = [];
-    });
-
-    // Get training days from partial schedule
-    const trainingDaysFromAPI = Object.keys(partialSchedule || {});
-    
-    // Define training day patterns based on frequency
-    const getTrainingDayPattern = (freq) => {
-      const patterns = {
-        1: ["Monday"],
-        2: ["Monday", "Thursday"],
-        3: ["Monday", "Wednesday", "Friday"],
-        4: ["Monday", "Tuesday", "Thursday", "Friday"],
-        5: ["Monday", "Tuesday", "Wednesday", "Friday", "Saturday"],
-        6: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-        7: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-      };
-      return patterns[freq] || patterns[3];
-    };
-
-    const targetTrainingDays = getTrainingDayPattern(parseInt(frequency));
-
-    // Fill in training days
-    if (trainingDaysFromAPI.length > 0) {
-      // Use exercises from API response for training days
-      targetTrainingDays.forEach((day, index) => {
-        const apiDay = trainingDaysFromAPI[index % trainingDaysFromAPI.length];
-        if (partialSchedule[apiDay]) {
-          newSchedule[day] = [...partialSchedule[apiDay]];
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    for (const day of days) {
+      const daySchedule = schedule[day];
+      if (daySchedule && Array.isArray(daySchedule) && daySchedule.length > 0) {
+        // Check if it's not just rest exercises
+        const hasActualExercises = daySchedule.some(exercise => 
+          exercise && 
+          typeof exercise === 'string' && 
+          !exercise.toLowerCase().includes('rest') &&
+          exercise.trim() !== ''
+        );
+        if (hasActualExercises) {
+          return day;
         }
-      });
-    } else {
-      // Create default exercises if no schedule from API
-      const defaultExercises = {
-        "muscle_gain": ["Weight Training: 45 minutes", "Compound Exercises: 30 minutes", "Isolation Work: 15 minutes"],
-        "fat_loss_program": ["Cardio: 30 minutes", "Strength Training: 20 minutes", "Core Work: 10 minutes"],
-        "athlete_performance": ["Sport-Specific Training: 60 minutes", "Conditioning: 30 minutes", "Flexibility: 15 minutes"]
-      };
-      
-      const exercises = defaultExercises[formData.goal] || defaultExercises["muscle_gain"];
-      targetTrainingDays.forEach(day => {
-        newSchedule[day] = [...exercises];
-      });
-    }
-
-    // Set rest days
-    allDays.forEach(day => {
-      if (!targetTrainingDays.includes(day)) {
-        newSchedule[day] = ["Rest Day"];
       }
-    });
+    }
+    return "Monday";
+  };
 
-    return newSchedule;
+  // FIXED: Check if a day is a training day
+  const isTrainingDay = (daySchedule) => {
+    if (!Array.isArray(daySchedule) || daySchedule.length === 0) return false;
+    
+    return daySchedule.some(exercise => 
+      exercise && 
+      typeof exercise === 'string' && 
+      !exercise.toLowerCase().includes('rest') &&
+      exercise.trim() !== ''
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -121,31 +94,57 @@ function MLForm() {
         goal: formData.goal
       };
 
+      console.log('Sending to Flask API:', apiData);
+
       const res = await axios.post("http://127.0.0.1:5000/predictionModel", apiData);
+      const prediction = res.data;
       
-      let prediction = res.data;
+      console.log('Flask API Response:', prediction);
+      console.log('Raw schedule data:', prediction.schedule_general_fitness);
+
+      // FIXED: Better schedule processing
+      let scheduleData = {};
       
+      // Try different possible schedule keys from the API response
+      if (prediction.schedule_general_fitness) {
+        scheduleData = prediction.schedule_general_fitness;
+      } else if (prediction.schedule) {
+        scheduleData = prediction.schedule;
+      } else if (prediction['weekly_schedule']) {
+        scheduleData = prediction['weekly_schedule'];
+      }
+
+      console.log('Processed schedule data:', scheduleData);
+      
+      // Ensure schedule has proper structure
+      if (!scheduleData || typeof scheduleData !== 'object') {
+        console.warn('No valid schedule data found');
+        scheduleData = {};
+      }
+
       // Process the response to match expected format
       const processedResult = {
         calories: Array.isArray(prediction["according to your goal calories you should take"]) 
           ? prediction["according to your goal calories you should take"][0]
           : prediction["according to your goal calories you should take"],
         goal: Array.isArray(prediction.goal) ? prediction.goal[0] : prediction.goal,
-        schedule: generateCompleteSchedule(prediction.schedule_general_fitness, formData.trainingFrequency),
+        schedule: scheduleData, // Use the schedule directly from API
         sportsExercise: prediction.special_sports_exercise || [],
-        originalResponse: prediction // Keep original for reference
+        originalResponse: prediction, // Keep original for reference
+        formData: formData,
+        generatedAt: new Date().toISOString(),
+        trainingFrequency: parseInt(formData.trainingFrequency)
       };
+      
+      console.log('Final processed result:', processedResult);
       
       setResult(processedResult);
       
       // Set active day to first training day
-      const trainingDays = Object.keys(processedResult.schedule).filter(day => 
-        processedResult.schedule[day] && 
-        processedResult.schedule[day].length > 0 &&
-        !processedResult.schedule[day].some(exercise => exercise.toLowerCase().includes('rest'))
-      );
-      if (trainingDays.length > 0) {
-        setActiveDay(trainingDays[0]);
+      if (processedResult.schedule && Object.keys(processedResult.schedule).length > 0) {
+        const firstTrainingDay = findFirstTrainingDay(processedResult.schedule);
+        setActiveDay(firstTrainingDay);
+        console.log('Set active day to:', firstTrainingDay);
       }
       
     } catch (error) {
@@ -155,7 +154,7 @@ function MLForm() {
     setLoading(false);
   };
 
-  // Save to Profile Function
+  // FIXED: Enhanced save to profile function
   const saveToProfile = async () => {
     if (!result) {
       alert("Please generate a fitness plan first!");
@@ -166,56 +165,37 @@ function MLForm() {
     setSaveSuccess(false);
 
     try {
-      // Get current user data first
-      const userRes = await axios.get("http://localhost:5000/api/auth/me", { withCredentials: true });
-      const currentUser = userRes.data.user;
-
-      // Prepare the complete data to save
-      const profileData = {
-        ...currentUser,
+      const profileData = { 
         mlPrediction: {
           ...result,
-          formData: formData, // Include original form data
-          generatedAt: new Date().toISOString(),
-          trainingFrequency: parseInt(formData.trainingFrequency),
-          apiResponse: result.originalResponse // Keep original API response
+          savedAt: new Date().toISOString()
         }
       };
 
-      // Save back to user profile
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/update", 
-        profileData,
-        { withCredentials: true }
-      );
-
-      if (response.status === 200) {
-        setSaveSuccess(true);
-        setTimeout(() => {
-          alert("Your fitness plan has been saved to your profile successfully!");
-          setSaveSuccess(false);
-        }, 100);
+      // CRITICAL: Save to localStorage first (immediate persistence)
+      localStorage.setItem('userFitnessPlan', JSON.stringify(profileData));
+      console.log('Saved to localStorage:', profileData);
+      
+      // Try backend save (optional, but recommended)
+      try {
+        const backendResponse = await axios.post(
+          "http://localhost:5000/api/auth/update", 
+          profileData, 
+          { withCredentials: true }
+        );
+        console.log('Saved to backend successfully:', backendResponse.data);
+      } catch (backendError) {
+        console.log("Backend save failed, but localStorage save succeeded");
       }
+
+      setSaveSuccess(true);
+      
+      // Reset success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000);
 
     } catch (error) {
-      console.error("Save to profile error:", error);
-      
-      // Try alternative approach - localStorage as backup
-      try {
-        const backupData = {
-          mlPrediction: {
-            ...result,
-            formData: formData,
-            generatedAt: new Date().toISOString(),
-            trainingFrequency: parseInt(formData.trainingFrequency)
-          }
-        };
-        localStorage.setItem('fitnessPlan', JSON.stringify(backupData));
-        setSaveSuccess(true);
-        alert("Your fitness plan has been saved locally! Backend endpoint may need setup for permanent storage.");
-      } catch (localError) {
-        alert("Failed to save to profile. Please try again.");
-      }
+      console.error("Save error:", error);
+      alert("Failed to save to profile. Please try again.");
     }
     setSaving(false);
   };
@@ -223,12 +203,35 @@ function MLForm() {
   // Save and Navigate to Profile Function
   const saveAndViewProfile = async () => {
     await saveToProfile();
-    if (saveSuccess) {
-      setTimeout(() => {
-        navigate("/profile");
-      }, 1500);
-    }
+    // Navigate after a short delay to ensure save completes
+    setTimeout(() => {
+      navigate("/profile");
+    }, 1000);
   };
+
+  // FIXED: Format goal function
+  const formatGoal = (goal) => {
+    if (Array.isArray(goal)) return goal.join(", ");
+    if (typeof goal === 'string') return goal.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return goal || "Not specified";
+  };
+
+  // FIXED: Get training stats
+  const getTrainingStats = () => {
+    if (!result?.schedule) return { training: 0, rest: 7 };
+    
+    const trainingDays = Object.keys(result.schedule).filter(day => {
+      const daySchedule = result.schedule[day];
+      return isTrainingDay(daySchedule);
+    });
+    
+    return {
+      training: trainingDays.length,
+      rest: 7 - trainingDays.length
+    };
+  };
+
+  const trainingStats = getTrainingStats();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-24 pb-8 px-4">
@@ -548,7 +551,7 @@ function MLForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-blue-50 p-4 rounded-xl">
                     <p className="text-sm text-blue-600 font-medium">Goal</p>
-                    <p className="font-semibold text-gray-800 capitalize">{result.goal?.replace(/_/g, ' ')}</p>
+                    <p className="font-semibold text-gray-800 capitalize">{formatGoal(result.goal)}</p>
                   </div>
                   <div className="bg-orange-50 p-4 rounded-xl">
                     <p className="text-sm text-orange-600 font-medium">Daily Calories</p>
@@ -560,7 +563,7 @@ function MLForm() {
                 <div className="bg-indigo-50 p-4 rounded-xl">
                   <p className="text-sm text-indigo-600 font-medium">Training Schedule</p>
                   <p className="font-semibold text-gray-800">
-                    {formData.trainingFrequency} {formData.trainingFrequency === 1 ? 'day' : 'days'} per week
+                    {trainingStats.training} training days, {trainingStats.rest} rest days per week
                   </p>
                 </div>
 
@@ -576,80 +579,108 @@ function MLForm() {
                   </div>
                 </div>
 
-                {/* Weekly Schedule */}
-                <div>
-                  <h3 className="font-medium text-gray-700 mb-3">Weekly Schedule</h3>
-                  
-                  {/* Day Selector */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {result.schedule && Object.keys(result.schedule).map(day => (
-                      <button
-                        key={day}
-                        onClick={() => setActiveDay(day)}
-                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                          activeDay === day 
-                            ? 'bg-indigo-600 text-white' 
-                            : result.schedule[day] && result.schedule[day].length > 0 && 
-                              !result.schedule[day].some(ex => ex.toLowerCase().includes('rest'))
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {day.substring(0, 3)}
-                        {result.schedule[day] && result.schedule[day].length > 0 && 
-                         !result.schedule[day].some(ex => ex.toLowerCase().includes('rest')) && (
-                          <span className="ml-1 text-xs">•</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                  
-                  {/* Day Schedule */}
-                  {result.schedule && result.schedule[activeDay] && (
+                {/* FIXED: Weekly Schedule */}
+                {result.schedule && Object.keys(result.schedule).length > 0 ? (
+                  <div>
+                    <h3 className="font-medium text-gray-700 mb-3">Weekly Schedule</h3>
+                    
+                    {/* Day Selector */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {Object.keys(result.schedule).map(day => {
+                        const daySchedule = result.schedule[day] || [];
+                        const dayIsTraining = isTrainingDay(daySchedule);
+                        
+                        return (
+                          <button
+                            key={day}
+                            onClick={() => setActiveDay(day)}
+                            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors relative ${
+                              activeDay === day 
+                                ? 'bg-indigo-600 text-white' 
+                                : dayIsTraining
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {day.substring(0, 3)}
+                            {dayIsTraining && (
+                              <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Day Schedule */}
                     <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
                       <h4 className="font-semibold text-center text-indigo-700 mb-3">{activeDay}</h4>
-                      <ul className="space-y-2">
-                        {result.schedule[activeDay].map((exercise, index) => (
-                          <li key={index} className={`flex items-start p-2 rounded-lg ${
-                            exercise.toLowerCase().includes('rest') 
-                              ? 'bg-gray-100 border border-gray-200' 
-                              : 'bg-white border border-green-200'
-                          }`}>
-                            <svg className={`w-4 h-4 mt-1 mr-2 flex-shrink-0 ${
-                              exercise.toLowerCase().includes('rest') 
-                                ? 'text-gray-400' 
-                                : 'text-green-500'
-                            }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span className="text-sm text-gray-700">{exercise}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      
+                      {result.schedule[activeDay] && Array.isArray(result.schedule[activeDay]) && result.schedule[activeDay].length > 0 ? (
+                        <ul className="space-y-2">
+                          {result.schedule[activeDay].map((exercise, index) => {
+                            // Handle empty or rest exercises
+                            if (!exercise || exercise.trim() === '' || exercise.toLowerCase().includes('rest')) {
+                              return (
+                                <li key={index} className="flex items-center justify-center p-3 bg-gray-100 border border-gray-200 rounded-lg">
+                                  <div className="text-gray-600 font-medium flex items-center">
+                                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 718.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                    </svg>
+                                    Rest Day
+                                  </div>
+                                </li>
+                              );
+                            }
+                            
+                            return (
+                              <li key={index} className="flex items-start p-3 bg-white border border-green-200 rounded-lg">
+                                <svg className="w-4 h-4 mt-1 mr-3 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span className="text-sm text-gray-700 font-medium">{exercise}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : (
+                        <div className="text-center py-4 text-gray-500">
+                          <svg className="h-8 w-8 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 718.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                          </svg>
+                          <p>Rest Day - No exercises scheduled for {activeDay}</p>
+                        </div>
+                      )}
                     </div>
-                  )}
 
-                  {/* Training Summary */}
-                  {result.schedule && (
+                    {/* Training Summary */}
                     <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-blue-700">Training Days:</span>
-                        <span className="font-semibold text-blue-800">
-                          {Object.values(result.schedule).filter(dayEx => 
-                            dayEx && dayEx.length > 0 && !dayEx.some(ex => ex.toLowerCase().includes('rest'))
-                          ).length} days
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm mt-1">
-                        <span className="text-blue-700">Rest Days:</span>
-                        <span className="font-semibold text-blue-800">
-                          {7 - Object.values(result.schedule).filter(dayEx => 
-                            dayEx && dayEx.length > 0 && !dayEx.some(ex => ex.toLowerCase().includes('rest'))
-                          ).length} days
-                        </span>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-blue-700">Training Days:</span>
+                          <span className="font-semibold text-blue-800">{trainingStats.training}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-blue-700">Rest Days:</span>
+                          <span className="font-semibold text-blue-800">{trainingStats.rest}</span>
+                        </div>
                       </div>
                     </div>
-                  )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg className="w-12 w-12 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p>No weekly schedule available</p>
+                  </div>
+                )}
+
+                {/* DEBUG: Schedule Data */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-700 mb-2">Debug: Schedule Data</h4>
+                  <pre className="text-xs bg-white p-2 rounded border overflow-auto max-h-40">
+                    {JSON.stringify(result.schedule, null, 2)}
+                  </pre>
                 </div>
               </div>
             ) : (

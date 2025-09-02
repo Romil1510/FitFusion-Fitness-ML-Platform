@@ -38,7 +38,7 @@ const Signin = () => {
   if (isLoggedIn) return <Navigate to="/" />;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-green-50 px-4 py-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-green-50 px-4 py-20">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
         {/* Logo/Header Section */}
         <div className="flex justify-center mb-6">
