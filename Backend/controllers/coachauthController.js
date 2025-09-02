@@ -1,6 +1,42 @@
 import jwt from "jsonwebtoken";
 import { Coach } from "../models/Coach.js";
 import crypto from "crypto";
+import { User } from "../models/User.js";
+
+// GET INDIVIDUAL PLAYER PROFILE
+export const getPlayerProfile = async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const coachId = req.user._id;
+
+    // Verify this player belongs to this coach
+    const coach = await Coach.findById(coachId);
+    if (!coach.players.includes(playerId)) {
+      return res.status(403).json({ message: "Access denied to this player" });
+    }
+
+    // Get fresh player data
+    const player = await User.findById(playerId)
+      .select("-password -resetPasswordToken -resetPasswordExpire");
+
+    if (!player) {
+      return res.status(404).json({ message: "Player not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      ...player.toObject(),
+      fetchedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching player profile",
+      error: error.message,
+    });
+  }
+};
+
 
 // COACH SIGNUP
 export const coachSignup = async (req, res) => {
@@ -148,6 +184,69 @@ export const coachForgotPassword = async (req, res) => {
     res.status(500).json({
       message: "Failed to send password reset email",
       error: error.message,
+    });
+  }
+};
+
+
+
+// Update user profile with ML predictions
+export const updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const updateData = req.body;
+
+    // Update user with new ML prediction data
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        ...updateData,
+        updatedAt: new Date(),
+        lastDataUpdate: new Date() // Track when ML data was updated
+      },
+      { 
+        new: true, // Return updated document
+        runValidators: true 
+      }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      user: updatedUser,
+      message: "Profile updated successfully"
+    });
+
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ 
+      message: "Failed to update profile", 
+      error: error.message 
+    });
+  }
+};
+
+// Get user profile
+export const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      user: user
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      message: "Failed to get profile", 
+      error: error.message 
     });
   }
 };

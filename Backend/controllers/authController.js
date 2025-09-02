@@ -3,9 +3,72 @@ import { generateToken } from "../utils/jwtToken.js";
 import { Coach } from "../models/Coach.js";
 import crypto from "crypto";
 
+
 const JWT_SECRET = process.env.JWT_SECRET_KEY || "mysecret";
 const JWT_EXPIRE = "7d";
 
+
+
+// Update user profile with ML predictions
+export const updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const updateData = req.body;
+
+    // Update user with new ML prediction data
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        ...updateData,
+        updatedAt: new Date(),
+        lastDataUpdate: new Date() // Track when ML data was updated
+      },
+      { 
+        new: true, // Return updated document
+        runValidators: true 
+      }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      user: updatedUser,
+      message: "Profile updated successfully"
+    });
+
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ 
+      message: "Failed to update profile", 
+      error: error.message 
+    });
+  }
+};
+
+// Get user profile
+export const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      user: user
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      message: "Failed to get profile", 
+      error: error.message 
+    });
+  }
+};
 
 
 // ================== SIGNUP ==================
