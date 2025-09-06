@@ -38,3 +38,19 @@ Clone the repo:
 ```bash
 git clone https://github.com/your-username/FitFusion.git
 cd FitFusion
+
+# For frontend
+cd frontend
+npm install
+npm run dev
+
+# For backend
+cd backend
+npm install
+npm start
+
+# For ML backend
+cd ml-backend
+pip install -r requirements.txt
+python app.py
+
